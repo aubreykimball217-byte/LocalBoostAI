@@ -123,3 +123,55 @@ export const submitFeedback = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
+
+export const getInactiveCustomers = async (req: AuthRequest, res: Response) => {
+  try {
+    const { businessId, months = 3 } = req.query;
+
+    if (!businessId) {
+      return res.status(400).json({ error: 'businessId is required' });
+    }
+
+    const result = await db.query(
+      `SELECT * FROM customers 
+       WHERE business_id = $1 
+       AND last_visit < CURRENT_TIMESTAMP - INTERVAL '${months} months'
+       AND deleted_at IS NULL`,
+      [businessId]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Get Inactive Customers Error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+export const createReactivationCampaign = async (req: AuthRequest, res: Response) => {
+  try {
+    const { businessId, name, customerIds, messageTemplate } = req.body;
+
+    if (!businessId || !name || !customerIds || !Array.isArray(customerIds)) {
+      return res.status(400).json({ error: 'businessId, name, and customerIds array are required' });
+    }
+
+    const campaignResult = await db.query(
+      'INSERT INTO campaigns (business_id, name, type, status) VALUES ($1, $2, $3, $4) RETURNING *',
+      [businessId, name, 'reactivation', 'active']
+    );
+
+    const campaign = campaignResult.rows[0];
+
+    // TODO: Actually send the messages and track them
+    // For now, we'll just mock the sending process
+
+    res.status(201).json({ 
+      message: 'Reactivation campaign created and started', 
+      campaign,
+      recipientsCount: customerIds.length 
+    });
+  } catch (error) {
+    console.error('Create Reactivation Campaign Error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};

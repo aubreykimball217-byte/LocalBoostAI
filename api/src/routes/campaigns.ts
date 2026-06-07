@@ -12,4 +12,8 @@ router.get('/qrcode/:businessId', authenticate, campaignController.getBusinessQR
 router.get('/feedback/:token', campaignController.getFeedbackDetails);
 router.post('/feedback/:token/submit', campaignController.submitFeedback);
 
+// Reactivation
+router.get('/inactive-customers', authenticate, campaignController.getInactiveCustomers);
+router.post('/reactivation', authenticate, campaignController.createReactivationCampaign);
+
 export default router;

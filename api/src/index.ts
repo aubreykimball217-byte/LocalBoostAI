@@ -8,6 +8,9 @@ import subscriptionRoutes from './routes/subscriptions.js';
 import reviewRoutes from './routes/reviews.js';
 import campaignRoutes from './routes/campaigns.js';
 import socialRoutes from './routes/social.js';
+import reviewRequestRoutes from './routes/reviewRequests.js';
+import leadRoutes from './routes/leads.js';
+import dashboardRoutes from './routes/dashboard.js';
 
 dotenv.config();
 
@@ -30,6 +33,8 @@ app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/social', socialRoutes);
+app.use('/api/leads', leadRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

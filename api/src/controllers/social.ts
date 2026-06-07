@@ -111,3 +111,51 @@ export const schedulePost = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
+
+export const updateSocialPost = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { content, imageUrl } = req.body;
+
+    const result = await db.query(
+      'UPDATE social_posts SET content = COALESCE($1, content), image_url = COALESCE($2, image_url), updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *',
+      [content, imageUrl, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+export const deleteSocialPost = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const result = await db.query('DELETE FROM social_posts WHERE id = $1 RETURNING id', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    res.json({ message: 'Post deleted', id: result.rows[0].id });
+  } catch (error) {
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+export const getSocialTemplates = async (req: AuthRequest, res: Response) => {
+  const templates = [
+    { id: 'dental', name: 'Dental Practice' },
+    { id: 'salon', name: 'Hair & Beauty Salon' },
+    { id: 'hvac', name: 'HVAC Services' },
+    { id: 'plumbing', name: 'Plumbing Services' },
+    { id: 'chiropractic', name: 'Chiropractic Clinic' },
+    { id: 'roofing', name: 'Roofing Contractor' },
+    { id: 'general', name: 'General Local Business' },
+  ];
+  res.json(templates);
+};
