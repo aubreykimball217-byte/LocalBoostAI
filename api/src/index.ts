@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
+import authRoutes from './routes/auth.js';
 
 dotenv.config();
 
@@ -16,6 +17,8 @@ app.use(morgan('dev'));
 app.use(express.json());
 
 // Routes
+app.use('/api/auth', authRoutes);
+
 app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
