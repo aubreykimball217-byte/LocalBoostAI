@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import db from '../config/database.js';
 import { AuthRequest } from '../middleware/auth.js';
 
@@ -114,7 +114,7 @@ export const getCompetitiveBenchmarking = async (req: AuthRequest, res: Response
   }
 };
 
-export const getSocialProofData = async (req: Request, res: Response) => {
+export const getSocialProofData = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { businessId } = req.params;
 
