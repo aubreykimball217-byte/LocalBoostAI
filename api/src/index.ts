@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth.js';
+import subscriptionRoutes from './routes/subscriptions.js';
 
 dotenv.config();
 
@@ -14,10 +15,15 @@ const port = process.env.PORT || 3001;
 app.use(helmet());
 app.use(cors());
 app.use(morgan('dev'));
+
+// Webhook needs raw body for Stripe signature verification
+app.use('/api/subscriptions/webhook', express.raw({ type: 'application/json' }));
+
 app.use(express.json());
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/subscriptions', subscriptionRoutes);
 
 app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
