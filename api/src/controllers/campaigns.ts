@@ -157,21 +157,85 @@ export const createReactivationCampaign = async (req: AuthRequest, res: Response
 
     const campaignResult = await db.query(
       'INSERT INTO campaigns (business_id, name, type, status) VALUES ($1, $2, $3, $4) RETURNING *',
-      [businessId, name, 'reactivation', 'active']
+      [businessId, name, 'reactivation', 'draft']
     );
 
     const campaign = campaignResult.rows[0];
 
-    // TODO: Actually send the messages and track them
-    // For now, we'll just mock the sending process
-
     res.status(201).json({ 
-      message: 'Reactivation campaign created and started', 
+      message: 'Reactivation campaign created as draft', 
       campaign,
       recipientsCount: customerIds.length 
     });
   } catch (error) {
     console.error('Create Reactivation Campaign Error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+export const getCampaigns = async (req: AuthRequest, res: Response) => {
+  try {
+    const { businessId } = req.query;
+
+    if (!businessId) {
+      return res.status(400).json({ error: 'businessId is required' });
+    }
+
+    const result = await db.query(
+      'SELECT * FROM campaigns WHERE business_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC',
+      [businessId]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Get Campaigns Error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+export const sendCampaign = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const result = await db.query('SELECT * FROM campaigns WHERE id = $1', [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Campaign not found' });
+    }
+
+    const campaign = result.rows[0];
+
+    // Update status to active/sending
+    await db.query('UPDATE campaigns SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', ['active', id]);
+
+    // TODO: Trigger background job to send messages to recipients
+    
+    res.json({ message: 'Campaign sending started', campaignId: id });
+  } catch (error) {
+    console.error('Send Campaign Error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+export const getCampaignStats = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const result = await db.query('SELECT * FROM campaigns WHERE id = $1', [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Campaign not found' });
+    }
+
+    // Mock stats
+    res.json({
+      campaignId: id,
+      sentCount: 150,
+      openRate: 45.5,
+      clickRate: 12.3,
+      conversionCount: 8,
+      status: result.rows[0].status
+    });
+  } catch (error) {
+    console.error('Get Campaign Stats Error:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };

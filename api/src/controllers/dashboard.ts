@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import db from '../config/database.js';
 import { AuthRequest } from '../middleware/auth.js';
 
-export const getDashboardMetrics = async (req: AuthRequest, res: Response) => {
+export const getDashboardSummary = async (req: AuthRequest, res: Response) => {
   try {
     const { businessId } = req.query;
 
@@ -15,18 +15,18 @@ export const getDashboardMetrics = async (req: AuthRequest, res: Response) => {
       `SELECT 
         COUNT(*) as total_reviews,
         AVG(rating) as average_rating,
-        COUNT(CASE WHEN rating >= 4 THEN 1 END) as positive_reviews,
-        COUNT(CASE WHEN rating < 4 THEN 1 END) as negative_reviews
+        COUNT(CASE WHEN responded_at IS NOT NULL THEN 1 END) as responded_reviews
        FROM reviews WHERE business_id = $1`,
       [businessId]
     );
 
-    // 2. Lead Metrics
+    // 2. Lead Metrics (this month)
     const leadStats = await db.query(
-      `SELECT 
-        COUNT(*) as total_leads,
-        COUNT(CASE WHEN status = 'converted' THEN 1 END) as converted_leads
-       FROM leads WHERE business_id = $1 AND deleted_at IS NULL`,
+      `SELECT COUNT(*) as new_leads 
+       FROM leads 
+       WHERE business_id = $1 
+       AND created_at >= date_trunc('month', CURRENT_TIMESTAMP)
+       AND deleted_at IS NULL`,
       [businessId]
     );
 
@@ -36,42 +36,137 @@ export const getDashboardMetrics = async (req: AuthRequest, res: Response) => {
       [businessId]
     );
 
-    // 4. Social Post Metrics
+    // 4. Social Post Metrics (scheduled)
     const socialStats = await db.query(
-      'SELECT COUNT(*) as total_posts FROM social_posts WHERE business_id = $1 AND status = "published"',
+      'SELECT COUNT(*) as scheduled_posts FROM social_posts WHERE business_id = $1 AND status = $2',
+      [businessId, 'scheduled']
+    );
+
+    // 5. Active Campaigns
+    const campaignStats = await db.query(
+      'SELECT COUNT(*) as active_campaigns FROM campaigns WHERE business_id = $1 AND status = $2',
+      [businessId, 'active']
+    );
+
+    // 6. Subscription
+    const subStats = await db.query(
+      'SELECT plan_level FROM subscriptions WHERE business_id = $1',
       [businessId]
     );
 
+    const reviews = reviewStats.rows[0];
+    const responseRate = reviews.total_reviews > 0 
+      ? (reviews.responded_reviews / reviews.total_reviews) * 100 
+      : 0;
+
     res.json({
-      reviews: {
-        total: parseInt(reviewStats.rows[0].total_reviews),
-        averageRating: parseFloat(reviewStats.rows[0].average_rating) || 0,
-        positive: parseInt(reviewStats.rows[0].positive_reviews),
-        negative: parseInt(reviewStats.rows[0].negative_reviews)
-      },
-      leads: {
-        total: parseInt(leadStats.rows[0].total_leads),
-        converted: parseInt(leadStats.rows[0].converted_leads),
-        conversionRate: leadStats.rows[0].total_leads > 0 
-          ? (leadStats.rows[0].converted_leads / leadStats.rows[0].total_leads) * 100 
-          : 0
-      },
-      customers: {
-        total: parseInt(customerStats.rows[0].total_customers)
-      },
-      social: {
-        publishedPosts: parseInt(socialStats.rows[0].total_posts)
-      }
+      totalReviews: parseInt(reviews.total_reviews),
+      averageRating: parseFloat(reviews.average_rating) || 0,
+      responseRate,
+      newLeadsThisMonth: parseInt(leadStats.rows[0].new_leads),
+      totalCustomers: parseInt(customerStats.rows[0].total_customers),
+      scheduledSocialPosts: parseInt(socialStats.rows[0].scheduled_posts),
+      activeCampaigns: parseInt(campaignStats.rows[0].active_campaigns),
+      subscriptionTier: subStats.rows[0]?.plan_level || 'none'
     });
   } catch (error) {
-    console.error('Get Dashboard Metrics Error:', error);
+    console.error('Get Dashboard Summary Error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+export const getRatingTrend = async (req: AuthRequest, res: Response) => {
+  try {
+    const { businessId, days = 30 } = req.query;
+
+    if (!businessId) {
+      return res.status(400).json({ error: 'businessId is required' });
+    }
+
+    const result = await db.query(
+      `SELECT 
+        date_trunc('day', review_date) as date,
+        AVG(rating) as average_rating
+       FROM reviews 
+       WHERE business_id = $1 
+       AND review_date >= CURRENT_TIMESTAMP - INTERVAL '${days} days'
+       GROUP BY date
+       ORDER BY date ASC`,
+      [businessId]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Get Rating Trend Error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+export const getLeadTrend = async (req: AuthRequest, res: Response) => {
+  try {
+    const { businessId, days = 30 } = req.query;
+
+    if (!businessId) {
+      return res.status(400).json({ error: 'businessId is required' });
+    }
+
+    const result = await db.query(
+      `SELECT 
+        date_trunc('day', created_at) as date,
+        COUNT(*) as lead_count
+       FROM leads 
+       WHERE business_id = $1 
+       AND created_at >= CURRENT_TIMESTAMP - INTERVAL '${days} days'
+       AND deleted_at IS NULL
+       GROUP BY date
+       ORDER BY date ASC`,
+      [businessId]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Get Lead Trend Error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
+export const getReviewDistribution = async (req: AuthRequest, res: Response) => {
+  try {
+    const { businessId } = req.query;
+
+    if (!businessId) {
+      return res.status(400).json({ error: 'businessId is required' });
+    }
+
+    const result = await db.query(
+      `SELECT 
+        rating,
+        COUNT(*) as count
+       FROM reviews 
+       WHERE business_id = $1 
+       GROUP BY rating
+       ORDER BY rating DESC`,
+      [businessId]
+    );
+
+    const distribution = {
+      5: 0, 4: 0, 3: 0, 2: 0, 1: 0
+    };
+
+    result.rows.forEach(row => {
+      distribution[row.rating as keyof typeof distribution] = parseInt(row.count);
+    });
+
+    res.json(distribution);
+  } catch (error) {
+    console.error('Get Review Distribution Error:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
 
 export const getCompetitiveBenchmarking = async (req: AuthRequest, res: Response) => {
   try {
-    const { businessId } = req.query;
+    const { businessId } = req.params;
 
     if (!businessId) {
       return res.status(400).json({ error: 'businessId is required' });
@@ -86,11 +181,11 @@ export const getCompetitiveBenchmarking = async (req: AuthRequest, res: Response
 
     // Mock benchmark data based on industry
     const benchmarks: Record<string, any> = {
-      'dentist': { industryAvg: 4.2, topPercentile: 4.8 },
-      'salon': { industryAvg: 4.5, topPercentile: 4.9 },
-      'hvac': { industryAvg: 4.0, topPercentile: 4.7 },
-      'plumbing': { industryAvg: 3.8, topPercentile: 4.6 },
-      'default': { industryAvg: 4.1, topPercentile: 4.7 }
+      'dentist': { industryAvg: 4.2, topPercentile: 4.8, ranking: 15, totalCompetitors: 85 },
+      'salon': { industryAvg: 4.5, topPercentile: 4.9, ranking: 8, totalCompetitors: 120 },
+      'hvac': { industryAvg: 4.0, topPercentile: 4.7, ranking: 22, totalCompetitors: 60 },
+      'plumbing': { industryAvg: 3.8, topPercentile: 4.6, ranking: 12, totalCompetitors: 45 },
+      'default': { industryAvg: 4.1, topPercentile: 4.7, ranking: 10, totalCompetitors: 50 }
     };
 
     const benchmark = benchmarks[industry?.toLowerCase()] || benchmarks['default'];
@@ -105,7 +200,9 @@ export const getCompetitiveBenchmarking = async (req: AuthRequest, res: Response
     res.json({
       myRating,
       industryAvg: benchmark.industryAvg,
-      topPercentile: benchmark.topPercentile,
+      topCompetitorRating: benchmark.topPercentile,
+      ranking: benchmark.ranking,
+      totalCompetitors: benchmark.totalCompetitors,
       comparison: myRating >= benchmark.industryAvg ? 'above_average' : 'below_average'
     });
   } catch (error) {
@@ -130,8 +227,8 @@ export const getSocialProofData = async (req: Request, res: Response, next: Next
 
     // Get recent conversions (mocked or from leads)
     const recentLeads = await db.query(
-      'SELECT first_name, created_at FROM leads WHERE business_id = $1 AND status = "converted" ORDER BY created_at DESC LIMIT 5',
-      [businessId]
+      'SELECT first_name, created_at FROM leads WHERE business_id = $1 AND status = $2 ORDER BY created_at DESC LIMIT 5',
+      [businessId, 'converted']
     );
 
     res.json({

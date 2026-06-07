@@ -7,9 +7,11 @@ const router = Router();
 // Public lead capture (chat widget, forms)
 router.post('/', leadController.createLead);
 router.get('/widget-snippet/:businessId', leadController.getChatWidgetSnippet);
+router.get('/widget-config/:businessId', leadController.getWidgetConfig);
 
 // Authenticated lead management
 router.get('/', authenticate, leadController.getLeads);
-router.patch('/:id/status', authenticate, leadController.updateLeadStatus);
+router.get('/stats', authenticate, leadController.getLeadStats);
+router.put('/:id', authenticate, leadController.updateLead);
 
 export default router;

@@ -4,16 +4,15 @@ import { authenticate } from '../middleware/auth.js';
 
 const router = Router();
 
-// Review Request
-router.post('/send-request', authenticate, campaignController.sendReviewRequest);
-router.get('/qrcode/:businessId', authenticate, campaignController.getBusinessQRCode);
-
 // Feedback Landing Page (Public)
 router.get('/feedback/:token', campaignController.getFeedbackDetails);
 router.post('/feedback/:token/submit', campaignController.submitFeedback);
 
-// Reactivation
+// Campaigns management
+router.get('/', authenticate, campaignController.getCampaigns);
 router.get('/inactive-customers', authenticate, campaignController.getInactiveCustomers);
 router.post('/reactivation', authenticate, campaignController.createReactivationCampaign);
+router.post('/:id/send', authenticate, campaignController.sendCampaign);
+router.get('/:id/stats', authenticate, campaignController.getCampaignStats);
 
 export default router;

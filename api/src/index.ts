@@ -11,6 +11,7 @@ import socialRoutes from './routes/social.js';
 import reviewRequestRoutes from './routes/reviewRequests.js';
 import leadRoutes from './routes/leads.js';
 import dashboardRoutes from './routes/dashboard.js';
+import widgetRoutes from './routes/widgets.js';
 
 dotenv.config();
 
@@ -35,6 +36,7 @@ app.use('/api/campaigns', campaignRoutes);
 app.use('/api/social', socialRoutes);
 app.use('/api/leads', leadRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/widgets', widgetRoutes);
 
 app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
