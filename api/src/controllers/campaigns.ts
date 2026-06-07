@@ -18,6 +18,7 @@ export const getBusinessQRCode = async (req: AuthRequest, res: Response) => {
   } catch (error) {
     res.status(500).json({ error: 'Internal Server Error' });
   }
+};
 export const sendReviewRequest = async (req: AuthRequest, res: Response) => {
   try {
     const { businessId, customerId, method } = req.body; // method: 'email' or 'sms'
