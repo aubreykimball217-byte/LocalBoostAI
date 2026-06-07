@@ -6,6 +6,8 @@ import dotenv from 'dotenv';
 import authRoutes from './routes/auth.js';
 import subscriptionRoutes from './routes/subscriptions.js';
 import reviewRoutes from './routes/reviews.js';
+import campaignRoutes from './routes/campaigns.js';
+import socialRoutes from './routes/social.js';
 
 dotenv.config();
 
@@ -26,6 +28,8 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/campaigns', campaignRoutes);
+app.use('/api/social', socialRoutes);
 
 app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
