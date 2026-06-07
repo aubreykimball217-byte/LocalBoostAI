@@ -94,7 +94,7 @@ export const handleWebhook = async (req: Request, res: Response) => {
 
       // Update subscription in DB
       // Note: We'll get more details from the subscription event or fetch it
-      const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+      const subscription = (await stripe.subscriptions.retrieve(stripeSubscriptionId)) as any;
       const planLevel = session.metadata.planId;
       const status = subscription.status;
       const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
@@ -209,7 +209,7 @@ export const updateSubscriptionPlan = async (req: AuthRequest, res: Response) =>
     }
 
     // Retrieve the subscription to find the current item ID
-    const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+    const subscription = (await stripe.subscriptions.retrieve(stripeSubscriptionId)) as any;
 
     const updatedSubscription = await stripe.subscriptions.update(stripeSubscriptionId, {
       items: [

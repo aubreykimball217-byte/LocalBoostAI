@@ -65,7 +65,7 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors });
+      return res.status(400).json({ error: error.issues });
     }
     next(error);
   }
@@ -107,7 +107,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors });
+      return res.status(400).json({ error: error.issues });
     }
     next(error);
   }
@@ -216,7 +216,7 @@ export const resetPassword = async (req: Request, res: Response) => {
     res.json({ message: 'Password has been reset successfully' });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors });
+      return res.status(400).json({ error: error.issues });
     }
     res.status(500).json({ error: 'Internal Server Error' });
   }
@@ -277,7 +277,7 @@ export const updateProfile = async (req: any, res: Response) => {
     res.json(result.rows[0]);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors });
+      return res.status(400).json({ error: error.issues });
     }
     res.status(500).json({ error: 'Internal Server Error' });
   }
