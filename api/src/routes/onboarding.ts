@@ -4,7 +4,9 @@ import { authenticate } from '../middleware/auth.js';
 
 const router = Router();
 
-router.get('/status', authenticate, onboardingController.getOnboardingStatus);
-router.post('/step', authenticate, onboardingController.completeOnboardingStep);
+router.post('/start', authenticate, onboardingController.startOnboarding);
+router.post('/step', authenticate, onboardingController.saveOnboardingStep);
+router.get('/progress', authenticate, onboardingController.getOnboardingProgress);
+router.post('/complete', authenticate, onboardingController.completeOnboarding);
 
 export default router;

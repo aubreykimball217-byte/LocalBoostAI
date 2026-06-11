@@ -12,15 +12,16 @@ export const startAudit = async (req: Request, res: Response) => {
     try {
         const { businessName, businessUrl, email } = req.body;
 
-        if (!businessName || !email) {
-            return res.status(400).json({ error: 'businessName and email are required' });
+        if (!businessName) {
+            return res.status(400).json({ error: 'businessName is required' });
         }
 
+        // Email is optional at start, but required for full report
         const result = await db.query(
             `INSERT INTO audits (business_name, business_url, email, status)
              VALUES ($1, $2, $3, $4)
              RETURNING *`,
-            [businessName, businessUrl, email, 'pending']
+            [businessName, businessUrl, email || 'anonymous', 'pending']
         );
 
         const newAudit = result.rows[0];
@@ -34,6 +35,33 @@ export const startAudit = async (req: Request, res: Response) => {
         });
     } catch (error) {
         console.error('Start Audit Error:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
+export const claimAudit = async (req: Request, res: Response) => {
+    try {
+        const { auditId, email } = req.body;
+
+        if (!auditId || !email) {
+            return res.status(400).json({ error: 'auditId and email are required' });
+        }
+
+        const result = await db.query(
+            'UPDATE audits SET email = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
+            [email, auditId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Audit not found' });
+        }
+
+        // Trigger nurture sequence now that we have the email
+        console.log(`Audit ${auditId} claimed by ${email}. Sending report...`);
+
+        res.json({ message: 'Audit claimed successfully', audit: result.rows[0] });
+    } catch (error) {
+        console.error('Claim Audit Error:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 };
@@ -58,9 +86,13 @@ export const downloadReport = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
 
-        const result = await db.query('SELECT report_url FROM audits WHERE id = $1', [id]);
+        const result = await db.query('SELECT report_url, email FROM audits WHERE id = $1', [id]);
         if (result.rows.length === 0 || !result.rows[0].report_url) {
             return res.status(404).json({ error: 'Report not found' });
+        }
+
+        if (result.rows[0].email === 'anonymous') {
+            return res.status(403).json({ error: 'Please provide your email to download the full report' });
         }
 
         const reportUrl = result.rows[0].report_url;

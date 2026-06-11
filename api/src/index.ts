@@ -41,6 +41,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/widgets', widgetRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/onboarding', onboardingRoutes);
+app.use('/api/benchmarking', dashboardRoutes);
 
 app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

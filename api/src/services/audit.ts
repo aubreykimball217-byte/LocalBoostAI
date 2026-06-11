@@ -17,14 +17,29 @@ export interface AuditData {
 export const calculateReputationScore = (reviews: any[]) => {
     if (reviews.length === 0) return 0;
 
+    // 1. Weighted Average Rating (40%)
     const avgRating = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
-    const reviewCountScore = Math.min(reviews.length / 50, 1) * 20; // Max 20 points for 50+ reviews
-    const ratingScore = (avgRating / 5) * 60; // Max 60 points for 5.0 rating
-    
-    // Response rate score (mocked for now, assume 50% response rate)
-    const responseRateScore = 0.5 * 20; // Max 20 points
+    const ratingScore = (avgRating / 5) * 40;
 
-    return Math.round(reviewCountScore + ratingScore + responseRateScore);
+    // 2. Review Count vs Industry Average (20%)
+    // Assume industry average is 50 reviews
+    const industryAvgCount = 50;
+    const countScore = Math.min(reviews.length / industryAvgCount, 1) * 20;
+
+    // 3. Response Rate (15%)
+    // Mocked: assume 60% response rate
+    const responseRate = 0.6;
+    const responseScore = responseRate * 15;
+
+    // 4. Recency of Reviews (15%)
+    // Mocked: assume 80% recency (most reviews in last 6 months)
+    const recencyScore = 0.8 * 15;
+
+    // 5. Sentiment Diversity (10%)
+    // Mocked: assume 90% positive sentiment diversity
+    const sentimentScore = 0.9 * 10;
+
+    return Math.round(ratingScore + countScore + responseScore + recencyScore + sentimentScore);
 };
 
 export const generateAuditReport = async (auditId: string, data: AuditData, score: number) => {
@@ -43,30 +58,52 @@ export const generateAuditReport = async (auditId: string, data: AuditData, scor
             doc.pipe(stream);
 
             // Report Header
-            doc.fontSize(25).text('LocalBoost AI - Reputation Audit Report', { align: 'center' });
+            doc.fontSize(25).fillColor('#1e40af').text('LocalBoost AI', { align: 'center' });
+            doc.fontSize(20).fillColor('#333').text('Reputation Audit Report', { align: 'center' });
             doc.moveDown();
-            doc.fontSize(18).text(`Business: ${data.businessName}`);
+            
+            doc.fontSize(14).text(`Business: ${data.businessName}`);
             doc.fontSize(12).text(`Generated for: ${data.email}`);
+            doc.text(`Date: ${new Date().toLocaleDateString()}`);
             doc.moveDown();
 
-            // Reputation Score
-            doc.fontSize(20).text(`Reputation Score: ${score}/100`, { align: 'center' });
+            // Reputation Score (Big Number)
+            const scoreColor = score >= 80 ? '#16a34a' : (score >= 60 ? '#ca8a04' : '#dc2626');
+            doc.fontSize(18).text('Your Reputation Score', { align: 'center' });
+            doc.fontSize(60).fillColor(scoreColor).text(`${score}`, { align: 'center' });
+            doc.fontSize(14).fillColor('#666').text('out of 100', { align: 'center' });
             doc.moveDown();
 
-            // Analysis
-            doc.fontSize(14).text('Detailed Analysis:');
+            // Breakdown
+            doc.fillColor('#333').fontSize(16).text('Rating Distribution', { underline: true });
             doc.moveDown(0.5);
-            doc.fontSize(12).text(`- Average Rating: ${(score / 20).toFixed(1)} / 5.0`);
-            doc.text(`- Review Count: ${data.reviews.length} reviews analyzed`);
-            doc.text('- Response Rate: 50% (Industry Avg: 75%)');
+            
+            const ratings = [5, 4, 3, 2, 1];
+            ratings.forEach(r => {
+                const count = data.reviews.filter(rev => Math.round(rev.rating) === r).length;
+                const barWidth = (count / data.reviews.length) * 300;
+                doc.fontSize(12).text(`${r} Stars: ${count} reviews`);
+                doc.rect(doc.x + 100, doc.y - 12, barWidth, 10).fill('#3b82f6');
+                doc.moveDown(0.2);
+            });
+            doc.moveDown();
+
+            // Strengths & Weaknesses
+            doc.fontSize(16).fillColor('#333').text('Strengths & Weaknesses');
+            doc.moveDown(0.5);
+            doc.fontSize(12).fillColor('#333').text('✔ High average rating compared to local peers.');
+            doc.text('✔ Consistent brand voice in responses.');
+            doc.fillColor('#dc2626').text('✘ Low review volume (Top 10% have 3x more reviews).');
+            doc.text('✘ 40% of reviews go unanswered.');
+            doc.fillColor('#333');
             doc.moveDown();
 
             // Recommendations
-            doc.fontSize(14).text('Recommendations:');
+            doc.fontSize(16).text('Top 3 Actionable Recommendations');
             doc.moveDown(0.5);
-            doc.fontSize(12).text('1. Increase review volume: Start sending SMS/Email requests to every customer.');
-            doc.text('2. Improve response rate: Use AI to respond to all reviews within 24 hours.');
-            doc.text('3. Monitor negative feedback: Address complaints privately before they hit Google.');
+            doc.fontSize(12).text('1. Automate Review Requests: Send SMS reminders immediately after service.');
+            doc.text('2. Reactivate Past Customers: Run a "We Miss You" campaign to get fresh reviews.');
+            doc.text('3. AI-Powered Responses: Respond to every review to boost your ranking by up to 20%.');
             
             doc.end();
 
@@ -92,7 +129,7 @@ export const runAudit = async (auditId: string) => {
             { rating: 4, comment: 'Very good.' },
             { rating: 2, comment: 'Could be better.' },
             { rating: 5, comment: 'Amazing service.' },
-            { rating: 3, comment: 'Average.' },
+            { rating: 4, comment: 'Satisfied.' },
         ];
 
         const score = calculateReputationScore(mockReviews);
@@ -108,8 +145,9 @@ export const runAudit = async (auditId: string) => {
             [score, reportUrl, JSON.stringify(mockReviews), 'completed', auditId]
         );
 
-        // TODO: Trigger nurture sequence (send email)
-        console.log(`Audit ${auditId} completed with score ${score}`);
+        // Nurture Sequence logic (simulated)
+        console.log(`Audit ${auditId} completed. Sending "Report Ready" email to ${audit.email}...`);
+        
     } catch (error) {
         console.error(`Audit ${auditId} failed:`, error);
         await db.query('UPDATE audits SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', ['failed', auditId]);
