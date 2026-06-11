@@ -1,0 +1,3 @@
+-- Add nurture_step to audits
+ALTER TABLE audits ADD COLUMN IF NOT EXISTS nurture_step INTEGER DEFAULT 0;
+ALTER TABLE audits ADD COLUMN IF NOT EXISTS last_nurture_at TIMESTAMP WITH TIME ZONE;
